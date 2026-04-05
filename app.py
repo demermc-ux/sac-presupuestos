@@ -161,14 +161,15 @@ with tab1:
         if st.button("💾 GUARDAR EN NUBE", use_container_width=True):
             if nombre and patente:
                 try:
-                    # LEER HISTORIAL EXISTENTE
+                    # 1. LEER TODO Y ELIMINAR FILAS TOTALMENTE VACÍAS
                     try:
                         df_old = conn.read()
-                        df_old = df_old.dropna(how='all')
+                        # Solo conservamos filas donde al menos haya un nombre o patente
+                        df_old = df_old.dropna(subset=['cliente', 'patente'], how='all')
                     except:
                         df_old = pd.DataFrame()
 
-                    # NUEVA FILA
+                    # 2. CREAR NUEVA FILA
                     nueva_fila = pd.DataFrame([{
                         "fecha": fecha_v.strftime("%d/%m/%Y"),
                         "cliente": nombre,
@@ -182,14 +183,16 @@ with tab1:
                         "total": total
                     }])
 
-                    # CONCATENAR Y SUBIR
+                    # 3. UNIR Y LIMPIAR EL ÍNDICE
                     df_final = pd.concat([df_old, nueva_fila], ignore_index=True)
+                    
+                    # 4. SOBREESCRIBIR TODA LA TABLA CON LA LISTA EXTENDIDA
                     conn.update(data=df_final)
-                    st.success(f"✅ Guardado en Drive (Fila {len(df_final)+1})")
+                    st.success(f"✅ Guardado en Drive. Total registros: {len(df_final)}")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error al guardar: {e}")
             else:
-                st.warning("Nombre y Patente son obligatorios")
+                st.warning("Nombre y Patente son obligatorios para guardar.")
 
     with b2:
         pdf_file = generar_pdf({"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}, valores_piezas, st.session_state.reparaciones, st.session_state.repuestos, {"Neto": neto, "IVA": iva, "Total": total})
@@ -204,8 +207,10 @@ with tab2:
     st.subheader("📊 Registros Guardados")
     try:
         data = conn.read()
-        if not data.empty:
-            st.dataframe(data.iloc[::-1], use_container_width=True)
+        # Filtramos para mostrar solo lo real en la tabla de la app
+        data_show = data.dropna(subset=['cliente', 'patente'], how='all')
+        if not data_show.empty:
+            st.dataframe(data_show.iloc[::-1], use_container_width=True)
         else:
             st.info("No hay registros aún.")
     except:
