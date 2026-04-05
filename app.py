@@ -11,10 +11,9 @@ import urllib.parse
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="SAC Contreras", page_icon="logo_sac.png", layout="wide")
 
-# ID de tu carpeta que me pasaste
-ID_CARPETA_DRIVE = "1L89gLrT_0RqoZxQH3-_dCv-SfeUGx-Oveuovpwf7izA"
+# ID de tu carpeta corregido según la foto
+ID_CARPETA_DRIVE = "15vtz2-hqbOHvuEZ4E8oFKgZpp5wqDo3R"
 
-# Autenticación para Google Drive (usa tus Secrets actuales)
 def get_drive_service():
     info = st.secrets["connections"]["gsheets"]
     creds = service_account.Credentials.from_service_account_info(
@@ -23,7 +22,7 @@ def get_drive_service():
     )
     return build('drive', 'v3', credentials=creds)
 
-# --- 2. FUNCIÓN GENERAR PDF PROFESIONAL ---
+# --- 2. FUNCIÓN GENERAR PDF ---
 def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     try:
         pdf = FPDF()
@@ -32,7 +31,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
             pdf.image("logo_sac.png", 10, 8, 43)
         except: pass
             
-        pdf.set_font("Arial", 'B', 18)
+        pdf.set_font("Arial", 'B', 16)
         pdf.cell(0, 10, "PRESUPUESTO DE SERVICIO", 0, 1, 'R')
         
         pdf.set_font("Arial", 'B', 10)
@@ -84,7 +83,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     except: return None
 
 # --- 3. INTERFAZ ---
-st.title("🚗 SAC Contreras - Generador de Presupuestos")
+st.title("🚗 SAC Contreras - Sistema de Presupuestos")
 
 if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
 if 'repuestos' not in st.session_state: st.session_state.repuestos = []
@@ -112,15 +111,17 @@ c_a, c_b = st.columns(2)
 with c_a:
     st.subheader("🔧 Otros Trabajos")
     d_t = st.text_input("Detalle")
-    v_t = st.number_input("Valor $", min_value=0, key="v_t")
-    if st.button("➕ Añadir"): st.session_state.reparaciones.append({"detalle": d_t, "valor": v_t})
+    v_t = st.number_input("Valor $", min_value=0, key="v_t_input")
+    if st.button("➕ Añadir Trabajo"): 
+        if d_t: st.session_state.reparaciones.append({"detalle": d_t, "valor": v_t})
 with c_b:
     st.subheader("📦 Repuestos")
     d_s = st.text_input("Nombre Repuesto")
-    v_s = st.number_input("Precio $", min_value=0, key="v_s")
-    if st.button("➕ Agregar"): st.session_state.repuestos.append({"detalle": d_s, "valor": v_s})
+    v_s = st.number_input("Precio $", min_value=0, key="v_s_input")
+    if st.button("➕ Agregar Repuesto"): 
+        if d_s: st.session_state.repuestos.append({"detalle": d_s, "valor": v_s})
 
-# Totales
+# Cálculos
 neto = sum(valores_p.values()) + sum(x['valor'] for x in st.session_state.reparaciones) + sum(x['valor'] for x in st.session_state.repuestos)
 total_f = int(neto * 1.19)
 st.header(f"TOTAL: ${total_f:,}")
@@ -137,24 +138,23 @@ with b_nube:
                 
                 if pdf_c:
                     service = get_drive_service()
-                    nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M')}.pdf"
+                    nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M%S')}.pdf"
                     
                     file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
                     media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
                     
                     service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                    st.success(f"✅ Archivo '{nombre_archivo}' guardado en tu Drive.")
+                    st.success(f"✅ Archivo '{nombre_archivo}' guardado en Google Drive.")
             except Exception as e:
-                st.error(f"Error: {e}")
-        else: st.warning("Nombre y Patente obligatorios")
+                st.error(f"Error al subir: {e}")
+        else: st.warning("Nombre y Patente son obligatorios.")
 
 with b_pdf:
-    # Opción de descarga manual
     datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
-    pdf_c = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
-    if pdf_c:
-        st.download_button("📩 BAJAR PDF", data=pdf_c, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
+    pdf_manual = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
+    if pdf_manual:
+        st.download_button("📩 DESCARGAR PDF LOCAL", data=pdf_manual, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
 
 with b_ws:
-    txt = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}). Total: ${total_f:,}."
-    st.link_button("📲 WHATSAPP", f"https://wa.me/{tel_v}?text={urllib.parse.quote(txt)}", use_container_width=True)
+    txt_ws = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}). Total: ${total_f:,}."
+    st.link_button("📲 WHATSAPP", f"https://wa.me/{tel_v}?text={urllib.parse.quote(txt_ws)}", use_container_width=True)
