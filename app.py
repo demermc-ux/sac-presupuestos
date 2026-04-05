@@ -64,15 +64,18 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
 tab1, tab2 = st.tabs(["📝 Crear Presupuesto", "📂 Historial Nube"])
 
 with tab1:
-    # --- LOGO EN LA APP ---
-    col_logo, col_vacia = st.columns([1, 2])
+    # --- LOGO EN LA APP (MÁS GRANDE) ---
+    col_logo, col_vacia = st.columns([1, 1]) # Ajuste de columnas para el logo más grande
     with col_logo:
         try:
-            st.image("logo_sac.png", width=250)
+            st.image("logo_sac.png", width=500) # LOGO DOBLE DE GRANDE
         except:
             st.info("Sube 'logo_sac.png' a GitHub para verlo aquí.")
     
-    st.title("🛠️ SAC Contreras - Presupuestos")
+    st.divider()
+    
+    # --- TÍTULO "DATOS" ---
+    st.header("📋 Datos")
     
     col1, col2 = st.columns(2)
     with col1:
