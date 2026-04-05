@@ -5,8 +5,12 @@ from fpdf import FPDF
 from streamlit_gsheets import GSheetsConnection
 import urllib.parse
 
-# Configuración de página
-st.set_page_config(page_title="SAC Contreras - Gestión Nube", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA E ICONO ---
+st.set_page_config(
+    page_title="SAC Contreras",
+    page_icon="logo_sac.png", # Esto pone tu logo en la pestaña y acceso directo
+    layout="wide"
+)
 
 # Conector a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -64,17 +68,17 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
 tab1, tab2 = st.tabs(["📝 Crear Presupuesto", "📂 Historial Nube"])
 
 with tab1:
-    # --- LOGO EN LA APP (MÁS GRANDE) ---
-    col_logo, col_vacia = st.columns([1, 1]) # Ajuste de columnas para el logo más grande
+    # --- LOGO EN LA APP ---
+    col_logo, col_vacia = st.columns([1, 1])
     with col_logo:
         try:
-            st.image("logo_sac.png", width=500) # LOGO DOBLE DE GRANDE
+            st.image("logo_sac.png", width=500)
         except:
             st.info("Sube 'logo_sac.png' a GitHub para verlo aquí.")
     
     st.divider()
     
-    # --- TÍTULO "DATOS" ---
+    # --- TÍTULO SECCIÓN ---
     st.header("📋 Datos")
     
     col1, col2 = st.columns(2)
@@ -99,7 +103,7 @@ with tab1:
     for i, pieza in enumerate(piezas_lista):
         valores_piezas[pieza] = cols[i % 3].number_input(f"{pieza} $", min_value=0, step=1000, key=f"p_{i}")
 
-    # Reparaciones y Repuestos (Uso de Session State)
+    # Reparaciones y Repuestos
     if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
     if 'repuestos' not in st.session_state: st.session_state.repuestos = []
 
@@ -149,9 +153,9 @@ with tab1:
                     }])
                     df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                     conn.update(data=df_final)
-                    st.success("✅ Datos guardados en Google Sheets")
+                    st.success("✅ Guardado en Google Sheets")
                 except Exception as e:
-                    st.error(f"Error al conectar con la nube: {e}")
+                    st.error(f"Error: {e}")
             else: st.error("Falta Nombre o Patente")
 
     with b2:
@@ -161,17 +165,14 @@ with tab1:
             st.download_button("📩 DESCARGAR PDF", data=pdf_bytes, file_name=f"Presupuesto_{patente}.pdf", mime="application/pdf", use_container_width=True)
 
     with b3:
-        # Generar link de WhatsApp
-        msj = f"Hola {nombre}, te adjunto el presupuesto de SAC Contreras para el vehículo {marca} ({patente}). Total: ${total_final:,}. Saludos!"
-        msj_codificado = urllib.parse.quote(msj)
-        url_ws = f"https://wa.me/{tel_v}?text={msj_codificado}"
-        st.link_button("📲 ENVIAR POR WHATSAPP", url_ws, use_container_width=True)
+        msj = f"Hola {nombre}, te envío el presupuesto de SAC Contreras para {marca} ({patente}). Total: ${total_final:,}."
+        url_ws = f"https://wa.me/{tel_v}?text={urllib.parse.quote(msj)}"
+        st.link_button("📲 ENVIAR WHATSAPP", url_ws, use_container_width=True)
 
 with tab2:
-    st.subheader("📊 Historial de Presupuestos (Google Sheets)")
+    st.subheader("📊 Historial Nube")
     try:
         data = conn.read()
-        # Mostrar los últimos registros primero
         st.dataframe(data.iloc[::-1], use_container_width=True)
     except:
-        st.info("Conecta tu Google Sheet en 'Advanced Settings' para ver el historial.")
+        st.info("Sin datos en la nube aún.")
