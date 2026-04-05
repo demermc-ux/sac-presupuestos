@@ -11,7 +11,7 @@ import urllib.parse
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="SAC Contreras", page_icon="logo_sac.png", layout="wide")
 
-# ID de tu carpeta en Drive (sacado de tu imagen anterior)
+# ID exacto de tu carpeta (extraído de tu navegador)
 ID_CARPETA_DRIVE = "15vtz2-hqbOHvuEZ4E8oFKgZpp5wqDo3R"
 
 def get_drive_service():
@@ -84,7 +84,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     except: return None
 
 # --- 3. INTERFAZ ---
-st.title("🚗 SAC Contreras - Panel de Control")
+st.title("🚗 SAC Contreras - Gestión de Presupuestos")
 
 if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
 if 'repuestos' not in st.session_state: st.session_state.repuestos = []
@@ -122,7 +122,7 @@ with c_b:
     if st.button("➕ Agregar Repuesto"): 
         if d_s: st.session_state.repuestos.append({"detalle": d_s, "valor": v_s})
 
-# Totales
+# Cálculos
 neto = sum(valores_p.values()) + sum(x['valor'] for x in st.session_state.reparaciones) + sum(x['valor'] for x in st.session_state.repuestos)
 total_f = int(neto * 1.19)
 st.header(f"TOTAL: ${total_f:,}")
@@ -141,23 +141,20 @@ with b_nube:
                     service = get_drive_service()
                     nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M%S')}.pdf"
                     
-                    file_metadata = {
-                        'name': nombre_archivo, 
-                        'parents': [ID_CARPETA_DRIVE]
-                    }
+                    file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
                     media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
                     
-                    # AQUÍ ESTÁ LA SOLUCIÓN: Usamos supportsAllDrives para que use TU cuota.
+                    # Ejecución forzando el uso de la cuota del dueño de la carpeta
                     service.files().create(
                         body=file_metadata, 
                         media_body=media, 
                         fields='id',
-                        supportsAllDrives=True # Necesario para carpetas compartidas
+                        supportsAllDrives=True
                     ).execute()
-                    st.success(f"✅ Presupuesto guardado exitosamente en Drive.")
+                    st.success(f"✅ Guardado en Drive: {nombre_archivo}")
             except Exception as e:
-                st.error(f"Error de permisos/cuota: {e}")
-        else: st.warning("Falta Nombre o Patente.")
+                st.error(f"Error: {e}")
+        else: st.warning("Nombre y Patente son obligatorios.")
 
 with b_pdf:
     datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
@@ -166,5 +163,5 @@ with b_pdf:
         st.download_button("📩 DESCARGAR PDF", data=pdf_manual, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
 
 with b_ws:
-    txt_ws = f"Hola {nombre}, envío presupuesto SAC Contreras para el vehículo {marca} ({patente}). Total: ${total_f:,}."
+    txt_ws = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}). Total: ${total_f:,}."
     st.link_button("📲 WHATSAPP", f"https://wa.me/{tel_v}?text={urllib.parse.quote(txt_ws)}", use_container_width=True)
