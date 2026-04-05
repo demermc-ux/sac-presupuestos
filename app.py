@@ -11,10 +11,11 @@ import urllib.parse
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="SAC Contreras", page_icon="logo_sac.png", layout="wide")
 
-# ID de tu carpeta corregido según la foto
+# ID de tu carpeta en Drive
 ID_CARPETA_DRIVE = "15vtz2-hqbOHvuEZ4E8oFKgZpp5wqDo3R"
 
 def get_drive_service():
+    # Usa las credenciales que ya tienes configuradas en Secrets
     info = st.secrets["connections"]["gsheets"]
     creds = service_account.Credentials.from_service_account_info(
         info, 
@@ -75,6 +76,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         pdf.ln(5)
         pdf.set_fill_color(33, 37, 41)
         pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Arial", 'B', 12)
         pdf.set_x(110)
         pdf.cell(40, 12, "  TOTAL:", 1, 0, 'L', fill=True)
         pdf.cell(50, 12, f" ${totales['Total']:,}  ", 1, 1, 'R', fill=True)
@@ -143,7 +145,13 @@ with b_nube:
                     file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
                     media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
                     
-                    service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                    # Ejecución con supportsAllDrives=True para evitar error de cuota
+                    service.files().create(
+                        body=file_metadata, 
+                        media_body=media, 
+                        fields='id',
+                        supportsAllDrives=True
+                    ).execute()
                     st.success(f"✅ Archivo '{nombre_archivo}' guardado en Google Drive.")
             except Exception as e:
                 st.error(f"Error al subir: {e}")
