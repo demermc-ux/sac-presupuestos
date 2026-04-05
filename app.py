@@ -31,12 +31,13 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         pdf.set_text_color(33, 37, 41)
         pdf.cell(0, 10, "PRESUPUESTO DE SERVICIO", 0, 1, 'R')
         
-        # --- TUS DATOS (EMPRESA) ---
-        pdf.set_font("Arial", '', 9)
-        pdf.set_text_color(100, 100, 100)
+        # --- DATOS DE SAC CONTRERAS ---
+        pdf.set_font("Arial", 'B', 10)
+        pdf.set_text_color(50, 50, 50)
         pdf.cell(0, 5, "Servicio Automotriz Contreras", 0, 1, 'R')
-        pdf.cell(0, 5, "Dirección: Tu Dirección Aquí, Santiago", 0, 1, 'R') # <--- Cambia esto por tu dirección real
-        pdf.cell(0, 5, "Teléfono: +56 9 XXXX XXXX", 0, 1, 'R') # <--- Cambia esto por tu fono real
+        pdf.set_font("Arial", '', 9)
+        pdf.cell(0, 5, "Av. Central Gonzalo Pérez Llona 598 B, Maipú", 0, 1, 'R')
+        pdf.cell(0, 5, "Teléfono: +56 9 8687 6856", 0, 1, 'R')
         pdf.ln(10)
         
         # --- CUADRO DATOS CLIENTE ---
@@ -98,7 +99,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     except Exception as e:
         return None
 
-# --- ESTRUCTURA DE PESTAÑAS ---
+# --- INTERFAZ STREAMLIT ---
 tab1, tab2 = st.tabs(["📝 Crear Presupuesto", "📂 Historial Nube"])
 
 with tab1:
@@ -107,7 +108,7 @@ with tab1:
         try:
             st.image("logo_sac.png", width=500)
         except:
-            st.info("Sube 'logo_sac.png' a GitHub.")
+            st.info("Logo no detectado en el repositorio.")
     
     st.divider()
     st.header("📋 Datos")
@@ -150,10 +151,8 @@ with tab1:
         if st.button("➕ Agregar Repuesto"):
             st.session_state.repuestos.append({"detalle": det_res, "valor": val_res})
 
-    neto_p = sum(valores_piezas.values())
-    neto_r = sum(item['valor'] for item in st.session_state.reparaciones)
-    neto_rep = sum(item['valor'] for item in st.session_state.repuestos)
-    neto_total = neto_p + neto_r + neto_rep
+    # Cálculos
+    neto_total = sum(valores_piezas.values()) + sum(r['valor'] for r in st.session_state.reparaciones) + sum(rep['valor'] for rep in st.session_state.repuestos)
     iva_calc = int(neto_total * 0.19)
     total_final = neto_total + iva_calc
 
@@ -174,10 +173,10 @@ with tab1:
                     }])
                     df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                     conn.update(data=df_final)
-                    st.success("✅ Guardado")
+                    st.success("✅ Guardado exitoso")
                 except Exception as e:
-                    st.error(f"Error: {e}")
-            else: st.error("Faltan datos")
+                    st.error(f"Error de permisos: {e}")
+            else: st.error("Faltan datos obligatorios")
 
     with b2:
         datos_pdf = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
@@ -196,4 +195,4 @@ with tab2:
         data = conn.read()
         st.dataframe(data.iloc[::-1], use_container_width=True)
     except:
-        st.info("Configura los Secrets para guardar datos.")
+        st.info("Conexión con Google Sheets pendiente.")        st.info("Configura los Secrets para guardar datos.")
