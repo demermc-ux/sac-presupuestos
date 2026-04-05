@@ -64,13 +64,13 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("Arial", '', 10)
         
+        fill = False
         def agregar_fila(desc, valor, f):
             pdf.set_fill_color(248, 249, 250)
             pdf.cell(140, 8, f"  {desc}", 1, 0, 'L', fill=f)
             pdf.cell(50, 8, f" ${valor:,}  ", 1, 1, 'R', fill=f)
             return not f
 
-        fill = False
         for p, v in piezas.items():
             if v > 0: fill = agregar_fila(f"Pintura: {p}", v, fill)
         for r in reparaciones:
@@ -97,18 +97,19 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         
         return pdf.output(dest='S').encode('latin-1')
     except Exception as e:
+        st.error(f"Error PDF: {e}")
         return None
 
-# --- INTERFAZ STREAMLIT ---
+# --- INTERFAZ ---
 tab1, tab2 = st.tabs(["📝 Crear Presupuesto", "📂 Historial Nube"])
 
 with tab1:
-    col_logo, col_vacia = st.columns([1, 1])
+    col_logo, _ = st.columns([1, 1])
     with col_logo:
         try:
             st.image("logo_sac.png", width=500)
         except:
-            st.info("Logo no detectado en el repositorio.")
+            st.info("Logo no encontrado en GitHub.")
     
     st.divider()
     st.header("📋 Datos")
@@ -151,7 +152,6 @@ with tab1:
         if st.button("➕ Agregar Repuesto"):
             st.session_state.repuestos.append({"detalle": det_res, "valor": val_res})
 
-    # Cálculos
     neto_total = sum(valores_piezas.values()) + sum(r['valor'] for r in st.session_state.reparaciones) + sum(rep['valor'] for rep in st.session_state.repuestos)
     iva_calc = int(neto_total * 0.19)
     total_final = neto_total + iva_calc
@@ -173,10 +173,10 @@ with tab1:
                     }])
                     df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
                     conn.update(data=df_final)
-                    st.success("✅ Guardado exitoso")
+                    st.success("✅ Guardado")
                 except Exception as e:
                     st.error(f"Error de permisos: {e}")
-            else: st.error("Faltan datos obligatorios")
+            else: st.error("Nombre y Patente son obligatorios")
 
     with b2:
         datos_pdf = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
@@ -195,4 +195,4 @@ with tab2:
         data = conn.read()
         st.dataframe(data.iloc[::-1], use_container_width=True)
     except:
-        st.info("Conexión con Google Sheets pendiente.")        st.info("Configura los Secrets para guardar datos.")
+        st.info("Conexión con Google Sheets pendiente.")
