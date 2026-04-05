@@ -11,11 +11,10 @@ import urllib.parse
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="SAC Contreras", page_icon="logo_sac.png", layout="wide")
 
-# ID de tu carpeta en Drive
+# ID de tu carpeta en Drive (verificado de tus imágenes)
 ID_CARPETA_DRIVE = "15vtz2-hqbOHvuEZ4E8oFKgZpp5wqDo3R"
 
 def get_drive_service():
-    # Usa las credenciales que ya tienes configuradas en Secrets
     info = st.secrets["connections"]["gsheets"]
     creds = service_account.Credentials.from_service_account_info(
         info, 
@@ -85,7 +84,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     except: return None
 
 # --- 3. INTERFAZ ---
-st.title("🚗 SAC Contreras - Sistema de Presupuestos")
+st.title("🚗 SAC Contreras - Gestión de Presupuestos")
 
 if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
 if 'repuestos' not in st.session_state: st.session_state.repuestos = []
@@ -142,17 +141,20 @@ with b_nube:
                     service = get_drive_service()
                     nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M%S')}.pdf"
                     
-                    file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
+                    file_metadata = {
+                        'name': nombre_archivo, 
+                        'parents': [ID_CARPETA_DRIVE]
+                    }
                     media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
                     
-                    # Ejecución con supportsAllDrives=True para evitar error de cuota
+                    # CAMBIO CLAVE: Usamos supportsAllDrives para forzar el uso de la carpeta compartida
                     service.files().create(
                         body=file_metadata, 
                         media_body=media, 
                         fields='id',
                         supportsAllDrives=True
                     ).execute()
-                    st.success(f"✅ Archivo '{nombre_archivo}' guardado en Google Drive.")
+                    st.success(f"✅ ¡Éxito! Archivo guardado en Drive.")
             except Exception as e:
                 st.error(f"Error al subir: {e}")
         else: st.warning("Nombre y Patente son obligatorios.")
@@ -161,7 +163,7 @@ with b_pdf:
     datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
     pdf_manual = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
     if pdf_manual:
-        st.download_button("📩 DESCARGAR PDF LOCAL", data=pdf_manual, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
+        st.download_button("📩 DESCARGAR PDF", data=pdf_manual, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
 
 with b_ws:
     txt_ws = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}). Total: ${total_f:,}."
