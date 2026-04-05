@@ -11,10 +11,8 @@ import urllib.parse
 # --- 1. CONFIGURACIÓN ---
 st.set_page_config(page_title="SAC Contreras", page_icon="logo_sac.png", layout="wide")
 
-# ID de tu carpeta (Verificado de tus imágenes)
+# Configuración de IDs
 ID_CARPETA_DRIVE = "15vtz2-hqbOHvuEZ4E8oFKgZpp5wqDo3R"
-# TU CORREO PERSONAL (Donde se cobrará el espacio)
-TU_CORREO = "servicioautomotrizcontreras@gmail.com"
 
 def get_drive_service():
     info = st.secrets["connections"]["gsheets"]
@@ -86,7 +84,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
     except: return None
 
 # --- 3. INTERFAZ ---
-st.title("🚗 SAC Contreras - Panel de Control")
+st.title("🚗 SAC Contreras - Presupuestos")
 
 if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
 if 'repuestos' not in st.session_state: st.session_state.repuestos = []
@@ -98,7 +96,7 @@ with col_d1:
     marca = st.text_input("Vehículo")
 with col_d2:
     patente = st.text_input("Patente")
-    tel_v = st.text_input("Teléfono")
+    tel_v = st.text_input("Teléfono (+569...)")
     fecha_v = st.date_input("Fecha", datetime.now())
 
 st.divider()
@@ -114,15 +112,15 @@ st.divider()
 c_a, c_b = st.columns(2)
 with c_a:
     st.subheader("🔧 Otros Trabajos")
-    d_t = st.text_input("Detalle Trabajo")
-    v_t = st.number_input("Valor Trabajo $", min_value=0, key="v_t_input")
-    if st.button("➕ Añadir"): 
+    d_t = st.text_input("Detalle")
+    v_t = st.number_input("Valor $", min_value=0, key="v_t_input")
+    if st.button("➕ Añadir Trabajo"): 
         if d_t: st.session_state.reparaciones.append({"detalle": d_t, "valor": v_t})
 with c_b:
     st.subheader("📦 Repuestos")
     d_s = st.text_input("Nombre Repuesto")
-    v_s = st.number_input("Precio Repuesto $", min_value=0, key="v_s_input")
-    if st.button("➕ Agregar"): 
+    v_s = st.number_input("Precio $", min_value=0, key="v_s_input")
+    if st.button("➕ Agregar Repuesto"): 
         if d_s: st.session_state.repuestos.append({"detalle": d_s, "valor": v_s})
 
 neto = sum(valores_p.values()) + sum(x['valor'] for x in st.session_state.reparaciones) + sum(x['valor'] for x in st.session_state.repuestos)
@@ -131,41 +129,41 @@ st.header(f"TOTAL: ${total_f:,}")
 
 st.divider()
 
-if st.button("💾 GUARDAR PDF EN DRIVE", use_container_width=True):
-    if nombre and patente:
-        try:
-            datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
-            pdf_c = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
-            
-            if pdf_c:
-                service = get_drive_service()
-                nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M%S')}.pdf"
+# Botones de Acción
+b_nube, b_pdf, b_ws = st.columns(3)
+
+with b_nube:
+    if st.button("💾 GUARDAR EN DRIVE", use_container_width=True):
+        if nombre and patente:
+            try:
+                datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
+                pdf_c = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
                 
-                # 1. Subir el archivo
-                file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
-                media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
-                
-                file = service.files().create(
-                    body=file_metadata, 
-                    media_body=media, 
-                    fields='id',
-                    supportsAllDrives=True
-                ).execute()
-                
-                # 2. TRUCO FINAL: Darte permiso de propietario para usar tu cuota
-                permission = {
-                    'type': 'user',
-                    'role': 'owner',
-                    'emailAddress': TU_CORREO
-                }
-                service.permissions().create(
-                    fileId=file.get('id'),
-                    body=permission,
-                    transferOwnership=True,
-                    supportsAllDrives=True
-                ).execute()
-                
-                st.success(f"✅ ¡Éxito total! Archivo guardado y propiedad transferida.")
-        except Exception as e:
-            st.error(f"Error: {e}")
-    else: st.warning("Completa Nombre y Patente.")
+                if pdf_c:
+                    service = get_drive_service()
+                    nombre_archivo = f"Presupuesto_{patente}_{datetime.now().strftime('%H%M%S')}.pdf"
+                    file_metadata = {'name': nombre_archivo, 'parents': [ID_CARPETA_DRIVE]}
+                    media = MediaIoBaseUpload(io.BytesIO(pdf_c), mimetype='application/pdf')
+                    
+                    service.files().create(
+                        body=file_metadata, 
+                        media_body=media, 
+                        fields='id',
+                        supportsAllDrives=True # Clave para saltar el error de cuota en carpetas compartidas
+                    ).execute()
+                    st.success("✅ Guardado en Drive con éxito.")
+            except Exception as e:
+                st.error(f"Error Drive: {e}")
+        else: st.warning("Faltan datos obligatorios.")
+
+with b_pdf:
+    # Generar PDF para descarga manual
+    datos_p = {"Nombre": nombre, "RUT": rut, "Vehiculo": marca, "Patente": patente, "Fecha": fecha_v.strftime("%d/%m/%Y")}
+    pdf_manual = generar_pdf(datos_p, valores_p, st.session_state.reparaciones, st.session_state.repuestos, {"Total": total_f})
+    if pdf_manual:
+        st.download_button("📩 DESCARGAR PDF", data=pdf_manual, file_name=f"SAC_{patente}.pdf", mime="application/pdf", use_container_width=True)
+
+with b_ws:
+    # Botón WhatsApp
+    txt_ws = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}). Total: ${total_f:,}."
+    st.link_button("📲 WHATSAPP", f"https://wa.me/{tel_v}?text={urllib.parse.quote(txt_ws)}", use_container_width=True)
