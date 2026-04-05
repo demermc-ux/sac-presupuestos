@@ -17,7 +17,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         pdf = FPDF()
         pdf.add_page()
         
-        # Logo
+        # Logo en el PDF
         try:
             pdf.image("logo_sac.png", 10, 8, 33)
         except:
@@ -36,7 +36,7 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
         pdf.cell(0, 7, f"Fecha: {datos.get('Fecha')}", 0, 1)
         pdf.ln(5)
 
-        # Detalle
+        # Detalle de Trabajos
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(0, 10, "DETALLE DE TRABAJOS", 0, 1, 'L')
         pdf.set_font("Arial", '', 10)
@@ -64,7 +64,15 @@ def generar_pdf(datos, piezas, reparaciones, repuestos, totales):
 tab1, tab2 = st.tabs(["📝 Crear Presupuesto", "📂 Historial Nube"])
 
 with tab1:
-    st.title("🛠️ SAC Contreras")
+    # --- LOGO EN LA APP ---
+    col_logo, col_vacia = st.columns([1, 2])
+    with col_logo:
+        try:
+            st.image("logo_sac.png", width=250)
+        except:
+            st.info("Sube 'logo_sac.png' a GitHub para verlo aquí.")
+    
+    st.title("🛠️ SAC Contreras - Presupuestos")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -80,7 +88,7 @@ with tab1:
 
     st.divider()
 
-    # Pintura
+    # Sección Pintura
     st.subheader("🎨 Pintura por Pieza")
     piezas_lista = ["Capot", "Techo", "Puerta DL", "Puerta DR", "Puerta TL", "Puerta TR", "Tapabarro DL", "Tapabarro DR", "Parachoques Del", "Parachoques Tras"]
     valores_piezas = {}
@@ -88,14 +96,14 @@ with tab1:
     for i, pieza in enumerate(piezas_lista):
         valores_piezas[pieza] = cols[i % 3].number_input(f"{pieza} $", min_value=0, step=1000, key=f"p_{i}")
 
-    # Reparaciones y Repuestos
+    # Reparaciones y Repuestos (Uso de Session State)
     if 'reparaciones' not in st.session_state: st.session_state.reparaciones = []
     if 'repuestos' not in st.session_state: st.session_state.repuestos = []
 
     st.divider()
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("🔧 Reparaciones")
+        st.subheader("🔧 Reparaciones Adicionales")
         det_rep = st.text_input("Detalle Trabajo", key="det_rep")
         val_rep = st.number_input("Valor $", min_value=0, key="val_rep")
         if st.button("➕ Añadir Trabajo"):
@@ -107,7 +115,7 @@ with tab1:
         if st.button("➕ Agregar Repuesto"):
             st.session_state.repuestos.append({"detalle": det_res, "valor": val_res})
 
-    # CÁLCULOS DETALLADOS
+    # CÁLCULOS
     neto_p = sum(valores_piezas.values())
     neto_r = sum(item['valor'] for item in st.session_state.reparaciones)
     neto_rep = sum(item['valor'] for item in st.session_state.repuestos)
@@ -118,7 +126,7 @@ with tab1:
 
     st.divider()
     
-    # Mostrar Totales
+    # Resumen de Totales
     st.write(f"**Neto:** ${neto_total:,}")
     st.write(f"**IVA (19%):** ${iva_calc:,}")
     st.header(f"TOTAL: ${total_final:,}")
@@ -127,17 +135,20 @@ with tab1:
     b1, b2, b3 = st.columns(3)
     
     with b1:
-        if st.button("💾 GUARDAR EN GOOGLE SHEETS", use_container_width=True):
+        if st.button("💾 GUARDAR EN NUBE", use_container_width=True):
             if nombre and patente:
-                df_actual = conn.read()
-                nueva_fila = pd.DataFrame([{
-                    "fecha": fecha_v.strftime("%d/%m/%Y"), "cliente": nombre, "rut": rut,
-                    "patente": patente, "modelo": marca, "color": color_v, "año": año_v,
-                    "telefono": tel_v, "neto": neto_total, "total": total_final
-                }])
-                df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
-                conn.update(data=df_final)
-                st.success("✅ Guardado en la nube")
+                try:
+                    df_actual = conn.read()
+                    nueva_fila = pd.DataFrame([{
+                        "fecha": fecha_v.strftime("%d/%m/%Y"), "cliente": nombre, "rut": rut,
+                        "patente": patente, "modelo": marca, "color": color_v, "año": año_v,
+                        "telefono": tel_v, "neto": neto_total, "total": total_final
+                    }])
+                    df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
+                    conn.update(data=df_final)
+                    st.success("✅ Datos guardados en Google Sheets")
+                except Exception as e:
+                    st.error(f"Error al conectar con la nube: {e}")
             else: st.error("Falta Nombre o Patente")
 
     with b2:
@@ -147,14 +158,17 @@ with tab1:
             st.download_button("📩 DESCARGAR PDF", data=pdf_bytes, file_name=f"Presupuesto_{patente}.pdf", mime="application/pdf", use_container_width=True)
 
     with b3:
-        msj = f"Hola {nombre}, presupuesto SAC Contreras para {marca} ({patente}): Total ${total_final:,}."
-        url_ws = f"https://wa.me/{tel_v}?text={urllib.parse.quote(msj)}"
+        # Generar link de WhatsApp
+        msj = f"Hola {nombre}, te adjunto el presupuesto de SAC Contreras para el vehículo {marca} ({patente}). Total: ${total_final:,}. Saludos!"
+        msj_codificado = urllib.parse.quote(msj)
+        url_ws = f"https://wa.me/{tel_v}?text={msj_codificado}"
         st.link_button("📲 ENVIAR POR WHATSAPP", url_ws, use_container_width=True)
 
 with tab2:
-    st.subheader("📊 Historial de Presupuestos")
+    st.subheader("📊 Historial de Presupuestos (Google Sheets)")
     try:
         data = conn.read()
-        st.dataframe(data.sort_index(ascending=False), use_container_width=True)
+        # Mostrar los últimos registros primero
+        st.dataframe(data.iloc[::-1], use_container_width=True)
     except:
-        st.info("No se pudo cargar el historial.")
+        st.info("Conecta tu Google Sheet en 'Advanced Settings' para ver el historial.")
